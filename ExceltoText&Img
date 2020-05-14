@@ -1,0 +1,77 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon May  4 21:51:46 2020
+
+@author: Z632445
+"""
+import xlrd
+from tkinter import Tk
+from PIL import ImageGrab
+import win32com.client as win32
+from tkinter.filedialog import askopenfilename
+from openpyxl import load_workbook
+#wb = load_workbook(filename = 'Book1.xlsx')
+
+
+Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
+input_file = askopenfilename() # show an "Open" dialog box and return the path to the selected file
+#assert isinstance(filename, object)
+#input_file = filename
+
+#To find the rows and columns active in workbook
+output_file = input_file.split("\\")[-1].replace('xlsx', 'txt')
+
+open_wb = xlrd.open_workbook(input_file)
+sheet = open_wb.sheet_by_index(0)
+row = sheet.nrows + 1
+cols = sheet.ncols
+
+#Convert Workbook to Text file
+wb = load_workbook(input_file, read_only=False, keep_vba=True)
+sheet_ranges = wb['Sheet1']
+#row = 278
+columns = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+col = []
+for i in range(cols):
+    col.append(columns[i])
+f = open(output_file, 'wb')
+# print(sheet_ranges['A1'].value)
+for i in range(2, row):
+    for j in col:
+        if sheet_ranges['{}{}'.format(j, i)].value and j == 'A':
+            f.write("{} = {}".format(sheet_ranges['{}1'.format(j)].value, sheet_ranges['{}{}'.format(j, i)].value.split('_')[-1]).upper().encode('utf8', 'replace'))
+            if sheet_ranges['{}{}'.format(j, i+1)].value is None and j == 'A':
+                f.write('\n'.encode('utf8', 'replace'))
+                f.write('##PIC=D:\\Hello\{}.jpg'.format(sheet_ranges['{}{}'.format(j,i)].value).encode('utf8','replace'))
+                f.write('\n'.encode('utf8', 'replace'))
+                f.write("##PIC_END".encode('utf8','replace'))
+        elif sheet_ranges['{}{}'.format(j, i)].value is None and j == 'A':
+            break
+        elif sheet_ranges['{}{}'.format(j, i)].value:
+            f.write("##START_{}##".format(sheet_ranges['{}1'.format(j)].value).upper().replace(' ','_').encode('utf8', 'replace'))
+            f.write('\n'.encode('utf8', 'replace'))
+            f.write("{}".format(sheet_ranges['{}{}'.format(j, i)].value).encode('utf8', 'replace'))
+            f.write('\n'.encode('utf8', 'replace'))
+            f.write("##END_{}##".format(sheet_ranges['{}1'.format(j)].value).upper().replace(' ','_').encode('utf8','replace'))
+        elif sheet_ranges['{}{}'.format(j, i)].value is None : # Empty cells to be displayed
+            f.write("##START_{}##".format(sheet_ranges['{}1'.format(j)].value).upper().replace(' ','_').encode('utf8', 'replace'))
+            f.write('\n'.encode('utf8', 'replace'))
+            f.write("##END_{}##".format(sheet_ranges['{}1'.format(j)].value).upper().replace(' ','_').encode('utf8','replace'))
+        else:
+            continue
+        f.write('\n'.encode('utf8', 'replace'))
+    f.write('\n'.encode('utf8', 'replace'))
+f.close()
+
+ip_file = input_file
+excel = win32.gencache.EnsureDispatch('Excel.Application')
+excel.Visible = 0
+workbook = excel.Workbooks.Open(ip_file, ReadOnly=True)
+for sheet in workbook.Worksheets:
+   for i, shape in enumerate(sheet.Shapes):
+        if shape.Name.startswith('Picture'):
+            shape.Copy() # Copies from Excel to Windows clipboard
+            # Use PIL to save from Windows clipboard to a file
+            image = ImageGrab.grabclipboard()
+            if image is not None:
+                image.save('{}.bmp'.format(i+1))
